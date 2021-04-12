@@ -1,4 +1,4 @@
-const fs = require('fs');// Подключаем родной модуль файловой системы node.js
+const fs = require('fs'); // Подключаем родной модуль файловой системы node.js
 const Discord = require('discord.js'); // Подключаем библиотеку discord.js
 const { prefix, token } = require('./config.json'); // Подключаем файл с параметрами и информацией
 
@@ -13,12 +13,13 @@ for (const file of commandFiles) {
 }
 
 client.once('ready', () => {
-	console.log(`Запустился бот ${client.user.username}`);
-  
+	console.log(`Запустился бот ${client.user.username}`); // Info в консоли о включении бота
+
 });
 
-client.on('message', message => {
-	if (!message.content.startsWith(prefix) || message.author.bot) return;
+client.on('message', async message => { // Функция чтения сообщений из чата ( если сообщение пришло от бота, то игнорируем его )
+	if (message.author.bot) return;
+	if (!message.content.startsWith(prefix)) return;
 
 	const args = message.content.slice(prefix.length).trim().split(/ +/);
 	const command = args.shift().toLowerCase();
@@ -29,8 +30,8 @@ client.on('message', message => {
 		client.commands.get(command).execute(message, args);
 	} catch (error) {
 		console.error(error);
-		message.reply('there was an error trying to execute that command!');
-	}
+		message.reply('Произошла ошибка при попытке выполнить эту команду!');
+		}
 });
 
 client.login(token);
