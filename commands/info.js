@@ -10,7 +10,6 @@
     message.client.manager.nodes.each(e => {
       totalPlayers += e.stats.playingPlayers
     })
-
     let RamLl = 0
     message.client.manager.nodes.each(e => {
       RamLl += e.stats.memory.used
