@@ -1,4 +1,4 @@
-module.exports = {
+	module.exports = {
 	name: 'args-info',
 	description: 'Информация о приведенных аргументах.',
 	execute(message, args) {

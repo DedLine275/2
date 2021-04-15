@@ -17,7 +17,6 @@ client.once('ready', () => {
 
 });
 
-
 client.on('message', async message => { // Функция чтения сообщений из чата ( если сообщение пришло от бота, то игнорируем его )
 	if (message.author.bot) return;
 	if (!message.content.startsWith(prefix)) return;

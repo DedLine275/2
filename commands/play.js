@@ -1,58 +1,84 @@
 module.exports = {
-	name : "play",
-	description: "Play Music from Yt or given Url",
-	aliases : ["p","music"],
-	ussage : "[Song Title | Url]",
-	hidden : false,
-	canDisabled : true,
-	admin : false,
-	owner : false,
-	nsfw : false,
-	async execute(client,message,args){
-		if(!args[0]) return message.reply("please provide url or search query!");
-		var msg = message;
-		const voiceChannel = msg.member.voice.channel;
-		const youtube = client.youtube;
-		const colors = client.colors;
-		const type = "YT";
+  name: "play",
+  description: "Play a song in your channel!",
+  async execute(message) {
+    try {
+      const args = message.content.split(" ");
+      const queue = message.client.queue;
+      const serverQueue = message.client.queue.get(message.guild.id);
 
-		const url = args[0] ? args[0].replace(/<(.+)>/g, "$1") : "";
-		const searchString = args.join(" ");
+      const voiceChannel = message.member.voice.channel;
+      if (!voiceChannel)
+        return message.channel.send(
+          "You need to be in a voice channel to play music!"
+        );
+      const permissions = voiceChannel.permissionsFor(message.client.user);
+      if (!permissions.has("CONNECT") || !permissions.has("SPEAK")) {
+        return message.channel.send(
+          "I need the permissions to join and speak in your voice channel!"
+        );
+      }
 
-		if (!voiceChannel) return msg.channel.send("I'm sorry but you need to be in a voice channel to play a music!");
-		const permissions = voiceChannel.permissionsFor(msg.client.user);
-		if (!permissions.has("CONNECT")) {
-				return msg.channel.send("Sorry, but I need **`CONNECT`** permissions to proceed!");
-		}
-		if (!permissions.has("SPEAK")) {
-				return msg.channel.send("Sorry, but I need **`SPEAK`** permissions to proceed!");
-		}
+      const songInfo = await ytdl.getInfo(args[1]);
+      const song = {
+        title: songInfo.videoDetails.title,
+        url: songInfo.videoDetails.video_url
+      };
 
-		// handling f args is YT Uri with playlist
-		if (url.match(/^https?:\/\/(www.youtube.com|youtube.com)\/playlist(.*)$/)) {
-			const playlist = await youtube.getPlaylist(url);
-			const videos = await playlist.getVideos();
-			for (const video of Object.values(videos)) {
-					const video2 = await youtube.getVideoByID(video.id); // eslint-disable-line no-await-in-loop
-					await client.players.handleVideo(client,video2, msg, voiceChannel, true, type); // eslint-disable-line no-await-in-loop
-			}
-			return msg.channel.send(`<:yes:591629527571234819>  **|**  Playlist: **\`${playlist.title}\`** has been added to the queue!`);
-		} else {
-			// else try execute the youtube from given url
-			try {
-				var video = await youtube.getVideo(url);
-			} catch (error) {
-				try {
-					// try to search Youtube form given query
-					var videos = await youtube.searchVideos(searchString, 10);
-					var video = await youtube.getVideoByID(videos[0].id);
-					if (!video) return msg.channel.send("🆘  **|**  I could not obtain any search results.");
-				} catch (err) {
-					console.error(err);
-					return msg.channel.send("🆘  **|**  I could not obtain any search results.");
-				}
-			}
-			return client.players.handleVideo(client,video, msg, voiceChannel, false, type);
-		}
-	}
-}
+      if (!serverQueue) {
+        const queueContruct = {
+          textChannel: message.channel,
+          voiceChannel: voiceChannel,
+          connection: null,
+          songs: [],
+          volume: 5,
+          playing: true
+        };
+
+        queue.set(message.guild.id, queueContruct);
+
+        queueContruct.songs.push(song);
+
+        try {
+          var connection = await voiceChannel.join();
+          queueContruct.connection = connection;
+          this.play(message, queueContruct.songs[0]);
+        } catch (err) {
+          console.log(err);
+          queue.delete(message.guild.id);
+          return message.channel.send(err);
+        }
+      } else {
+        serverQueue.songs.push(song);
+        return message.channel.send(
+          `${song.title} has been added to the queue!`
+        );
+      }
+    } catch (error) {
+      console.log(error);
+      message.channel.send(error.message);
+    }
+  },
+
+  play(message, song) {
+    const queue = message.client.queue;
+    const guild = message.guild;
+    const serverQueue = queue.get(message.guild.id);
+
+    if (!song) {
+      serverQueue.voiceChannel.leave();
+      queue.delete(guild.id);
+      return;
+    }
+
+    const dispatcher = serverQueue.connection
+      .play(ytdl(song.url))
+      .on("finish", () => {
+        serverQueue.songs.shift();
+        this.play(message, serverQueue.songs[0]);
+      })
+      .on("error", error => console.error(error));
+    dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
+    serverQueue.textChannel.send(`Start playing: **${song.title}**`);
+  }
+};
